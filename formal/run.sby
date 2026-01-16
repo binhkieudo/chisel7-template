@@ -12,7 +12,14 @@ vcd on
 # if vcd is required 'vcd_sim on' is a faster alternative to 'vcd off'
 
 [engines]
-smtbmc bitwuzla
+# Default
+smtbmc boolector 
+# Slower for pure hardware, but the most robust "Swiss Army Knife" if others crash or fail to parse complex non-standard logic
+smtbmc z3
+# Often fastest for pure logic, but licensing can be restrictive for some commercial use
+smtbmc yices
+# Use if you have arrays/memories or need floating-point support; it is the designated successor to Boolector
+smtbmc bitwuzla 
 
 # keep going to continue after failed assertions
 # bmc: smtbmc --keep-going
