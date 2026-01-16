@@ -44,19 +44,13 @@ prep -top QueueModule
 
 [file formal_setup.sv]
 module formal_setup(
-    input clk_global,
-    input clk_half,
+    input clock,
     input reset
 );
     (* gclk *) reg gclk;
     reg clk_g = 1'b0;
     always @(posedge gclk)
         clk_g <= !clk_g;
-
-    // Model the expected half-clock behavior
-    reg half_model = 1'b0;
-    always @(posedge clk_g)
-        half_model <= !half_model;
 
     reg [3:0] rst_counter = 2;
     always @(posedge clk_g)
@@ -66,18 +60,13 @@ module formal_setup(
 
     always @(*) begin
         // Constrain the global clock input to our generated clock
-        assume(clk_global == clk_g);
-        
-        // Constrain the half clock input to be exactly half frequency
-        assume(clk_half == half_model);
-
+        assume(clock == clk_g);
         assume(reset == rst);
     end
 endmodule
 
 bind QueueModule formal_setup formal_setup_inst (
-    .clk_global(clock),
-    // .clk_half(clock_half), // Connect to the half-clock port when available
+    .clock(clock),
     .reset(reset)
 );
 
