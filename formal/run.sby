@@ -1,90 +1,53 @@
-[tasks]
-bmc
-cover
-
 [options]
-bmc: mode bmc
-cover: mode cover
-depth 20
-multiclock off
-fst off
-vcd on
-# if vcd is required 'vcd_sim on' is a faster alternative to 'vcd off'
+mode prove
+depth 40
+multiclock on
+
+[tasks]
+aiger_avy
 
 [engines]
-# Default
-smtbmc boolector 
-# Slower for pure hardware, but the most robust "Swiss Army Knife" if others crash or fail to parse complex non-standard logic
-smtbmc z3
-# Often fastest for pure logic, but licensing can be restrictive for some commercial use
-smtbmc yices
-# Use if you have arrays/memories or need floating-point support; it is the designated successor to Boolector
-smtbmc bitwuzla 
-
-# keep going to continue after failed assertions
-# bmc: smtbmc --keep-going
-# cover: smtbmc
+abc pdr
 
 [script]
-read -sv ram_4x8.sv
-read -sv Queue4_UInt8.sv
-read -sv QueueModule.sv
-read -sv QueueModule_Verification_Assert.sv
-read -sv QueueModule_Verification_Cover.sv
-read -sv QueueModule_Verification.sv
-read -sv formal_setup.sv
-read -sv layers-QueueModule-Verification.sv
-read -sv layers-QueueModule-Verification-Assert.sv
-read -sv layers-QueueModule-Verification-Cover.sv
-prep -top QueueModule
+chformal -assume -early
 
 [files]
-../output/ram_4x8.sv
-../output/Queue4_UInt8.sv
-../output/QueueModule.sv
-../output/verification/assert/QueueModule_Verification_Assert.sv
-../output/verification/cover/QueueModule_Verification_Cover.sv
-../output/verification/QueueModule_Verification.sv
-../output/verification/cover/layers-QueueModule-Verification-Cover.sv
-../output/verification/layers-QueueModule-Verification.sv
-../output/verification/assert/layers-QueueModule-Verification-Assert.sv
 
 [file formal_setup.sv]
 module formal_setup();
     (* gclk *) reg gclk;
 
     // blockClock: toggle every gclk posedge
-    reg clock0;
-    initial clock0 = 1'b0;
+    reg clk_block;
+    initial clk_block = 1'b0;
     always @(posedge gclk)
-        clock0 <= !clock0;
+        clk_block <= !clk_block;
 
-    reg [3:0]rst0_counter = 2;
-    always @(posedge clock0)
-        if (rst0_counter > 0)
-            rst0_counter <= rst0_counter - 1'b1;
-    wire reset0 = rst0_counter > 0;
+    reg [3:0]block_rst_counter = 2;
+    always @(posedge clk_block)
+        if (block_rst_counter > 0)
+            block_rst_counter <= block_rst_counter - 1'b1;
+    wire block_rst = block_rst_counter > 0;
 
     // hubClock: toggle every other clk_block posedge (different domain)
-    reg clock1;
-    initial clock1 = 1'b0;
+    reg clk_hub;
+    initial clk_hub = 1'b0;
     always @(posedge gclk)
-        clock1 <= !clock1;    
+        clk_hub <= !clk_hub;    
 
-    reg [3:0]rst1_counter = 2;
-    always @(posedge clock1)
-        if (rst1_counter > 0)
-            rst1_counter <= rst1_counter - 1'b1;
-    wire reset1 = rst1_counter > 0;
+    reg [3:0]hub_rst_counter = 2;
+    always @(posedge clk_hub)
+        if (hub_rst_counter > 0)
+            hub_rst_counter <= hub_rst_counter - 1'b1;
+    wire hub_rst = hub_rst_counter > 0;
 
     always @(*) begin
-        assume(QueueModule.clock0 == clock0);
-        assume(QueueModule.reset0 == reset0);
-        assume(QueueModule.clock1 == clock1);
-        assume(QueueModule.reset1 == reset1);
+        assume(MemoryAdapterMsgSync.io_blockClock == clk_block);
+        assume(MemoryAdapterMsgSync.io_hubClock == clk_hub);
+        assume(MemoryAdapterMsgSync.io_blockReset == block_rst);
+        assume(MemoryAdapterMsgSync.io_hubReset == hub_rst);
     end
 endmodule
 
-bind QueueModule formal_setup formal_setup_inst (.*);
-
-
+bind MemoryAdapterMsgSync formal_setup formal_setup_inst (.*);
