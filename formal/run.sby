@@ -25,10 +25,10 @@ read -sv QueueModule.sv
 read -sv QueueModule_Verification_Assert.sv
 read -sv QueueModule_Verification_Cover.sv
 read -sv QueueModule_Verification.sv
+read -sv formal_setup.sv
 read -sv layers-QueueModule-Verification.sv
 read -sv layers-QueueModule-Verification-Assert.sv
 read -sv layers-QueueModule-Verification-Cover.sv
-read -sv formal_setup.sv
 prep -top QueueModule
 
 [files]
@@ -43,42 +43,41 @@ prep -top QueueModule
 ../output/verification/assert/layers-QueueModule-Verification-Assert.sv
 
 [file formal_setup.sv]
-module formal_setup(
-    input clk_global,
-    input clk_half,
-    input reset
-);
+module formal_setup();
     (* gclk *) reg gclk;
-    reg clk_g = 1'b0;
+
+    // blockClock: toggle every gclk posedge
+    reg clock0;
+    initial clock0 = 1'b0;
     always @(posedge gclk)
-        clk_g <= !clk_g;
+        clock0 <= !clock0;
 
-    // Model the expected half-clock behavior
-    reg half_model = 1'b0;
-    always @(posedge clk_g)
-        half_model <= !half_model;
+    reg [3:0]rst0_counter = 2;
+    always @(posedge clock0)
+        if (rst0_counter > 0)
+            rst0_counter <= rst0_counter - 1'b1;
+    wire reset0 = rst0_counter > 0;
 
-    reg [3:0] rst_counter = 2;
-    always @(posedge clk_g)
-        if (rst_counter)
-            rst_counter <= rst_counter - 1'b1;
-    wire rst = rst_counter > 0;
+    // hubClock: toggle every other clk_block posedge (different domain)
+    reg clock1;
+    initial clock1 = 1'b0;
+    always @(posedge gclk)
+        clock1 <= !clock1;    
+
+    reg [3:0]rst1_counter = 2;
+    always @(posedge clock1)
+        if (rst1_counter > 0)
+            rst1_counter <= rst1_counter - 1'b1;
+    wire reset1 = rst1_counter > 0;
 
     always @(*) begin
-        // Constrain the global clock input to our generated clock
-        assume(clk_global == clk_g);
-        
-        // Constrain the half clock input to be exactly half frequency
-        assume(clk_half == half_model);
-
-        assume(reset == rst);
+        assume(QueueModule.clock0 == clock0);
+        assume(QueueModule.reset0 == reset0);
+        assume(QueueModule.clock1 == clock1);
+        assume(QueueModule.reset1 == reset1);
     end
 endmodule
 
-bind QueueModule formal_setup formal_setup_inst (
-    .clk_global(clock),
-    // .clk_half(clock_half), // Connect to the half-clock port when available
-    .reset(reset)
-);
+bind QueueModule formal_setup formal_setup_inst (.*);
 
 
