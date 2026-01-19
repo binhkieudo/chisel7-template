@@ -66,6 +66,9 @@ log "\n[3/8] Performing high-level synthesis..."
 # Translate processes (always blocks)
 proc
 
+# Remove verification checks (assertions) for synthesis
+# chformal -remove
+
 # Optimize
 opt
 
