@@ -10,9 +10,29 @@ aiger_avy
 abc pdr
 
 [script]
+read -sv AsyncQueueSink_UInt64.sv
+read -sv AsyncQueueSource_UInt64.sv
+read -sv AsyncQueue.sv
+read -sv CdcMem.sv
+read -sv MemoryAdapterMsgSync.sv
+read -sv sdp_hw.sv
+read -sv SinkOutput_UInt64.sv
+read -sv SourceInput_UInt64.sv
+read -sv synopsys_sync.sv
+read -sv formal_setup.sv
 chformal -assume -early
+prep -top MemoryAdapterMsgSync
 
 [files]
+${SRC_DIR}/AsyncQueueSink_UInt64.sv
+${SRC_DIR}/AsyncQueueSource_UInt64.sv
+${SRC_DIR}/AsyncQueue.sv
+${SRC_DIR}/CdcMem.sv
+${SRC_DIR}/MemoryAdapterMsgSync.sv
+${SRC_DIR}/sdp_hw.sv
+${SRC_DIR}/SinkOutput_UInt64.sv
+${SRC_DIR}/SourceInput_UInt64.sv
+${SRC_DIR}/synopsys_sync.sv
 
 [file formal_setup.sv]
 module formal_setup();
