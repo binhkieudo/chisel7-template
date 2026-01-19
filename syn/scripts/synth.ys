@@ -1,0 +1,197 @@
+# Yosys Synthesis Script for SKY130A PDK
+# Run via Makefile: make synth
+# Environment variables must be set before running (Makefile does this automatically)
+#
+# Required variables:
+#   TOP_MODULE, RTL_DIR, REPORT_DIR, NETLIST_DIR, PDKPATH, CORNER
+
+# Print banner
+log "================================================================"
+log "  Yosys Synthesis Flow for SKY130A PDK"
+log "================================================================"
+
+# ============================================================================
+# Configuration
+# ============================================================================
+
+# PVT Corner Configuration (Temperature and Voltage)
+# These can be changed to target different corners:
+#   Temperature: -40C (m40C), 025C, 100C, 125C
+#   Voltage: 1v60, 1v80, 1v95
+#   Common corner combinations:
+#     ff (fast-fast): 100C_1v95
+#     tt (typical-typical): 025C_1v80
+#     ss (slow-slow): 100C_1v60
+
+log "Configuration:"
+log "  PDK Path    : $::env(PDKPATH)"
+log "  Corner      : $::env(CORNER)"
+log "  Temperature : $::env(TEMP)"
+log "  Voltage     : $::env(VOLT)"
+log "  Liberty     : $::env(LIB_CORNER_TEMP_VOLT)"
+
+# ============================================================================
+# STEP 1: Read RTL Files
+# ============================================================================
+log "\n[1/8] Reading RTL files..."
+
+# Read SystemVerilog files from filelist
+read_verilog -sv $::env(RTL_DIR)/SourceInput_UInt64.sv
+read_verilog -sv $::env(RTL_DIR)/AsyncQueueSource_UInt64.sv
+read_verilog -sv $::env(RTL_DIR)/SinkOutput_UInt64.sv
+read_verilog -sv $::env(RTL_DIR)/AsyncQueueSink_UInt64.sv
+read_verilog -sv $::env(RTL_DIR)/CdcMem.sv
+read_verilog -sv $::env(RTL_DIR)/AsyncQueue.sv
+read_verilog -sv $::env(RTL_DIR)/MemoryAdapterMsgSync.sv
+read_verilog -sv $::env(RTL_DIR)/sdp_hw.sv
+read_verilog -sv $::env(RTL_DIR)/synopsys_sync.sv
+
+log "✓ RTL files loaded"
+
+# ============================================================================
+# STEP 2: Hierarchy and Elaboration
+# ============================================================================
+log "\n[2/8] Elaborating design hierarchy..."
+
+# Set top module and check hierarchy
+hierarchy -check -top $::env(TOP_MODULE)
+
+log "✓ Hierarchy checked"
+
+# ============================================================================
+# STEP 3: High-level Synthesis
+# ============================================================================
+log "\n[3/8] Performing high-level synthesis..."
+
+# Translate processes (always blocks)
+proc
+
+# Optimize
+opt
+
+# FSM extraction and optimization
+fsm
+
+# Optimize again
+opt
+
+# Memory mapping
+memory
+
+# Optimize again
+opt
+
+log "✓ High-level synthesis complete"
+
+# Generate pre-synthesis statistics
+log "\n[3a] Pre-synthesis Statistics..."
+tee -q -o $::env(REPORT_DIR)/$::env(TOP_MODULE)_pre_synth_stats.txt stat
+
+# ============================================================================
+# STEP 4: Technology Mapping - SKY130A
+# ============================================================================
+log "\n[4/8] Technology mapping to SKY130A..."
+
+log "Using SKY130A PDK: $::env(PDKPATH)"
+log "Corner: $::env(CORNER)"
+
+# Flatten design (required for ABC)
+flatten
+
+# Convert high-level logic to gate-level
+techmap
+
+# Clean up
+opt_clean
+
+# Map flip-flops to SKY130 standard cells
+dfflibmap -liberty $::env(LIB_CORNER_TEMP_VOLT)
+
+# Map combinational logic with ABC
+# Use a sophisticated script that combines logic optimization with buffering and sizing
+abc -liberty $::env(LIB_CORNER_TEMP_VOLT) -constr $::env(SDC_FILE) -D 10000
+#-script +strash;ifraig;dch,-f;map;buffer;upsize;dnsize;stime,-p
+
+log "✓ Technology mapping complete"
+
+# Report high fanout nets after ABC
+log "Reporting high fanout nets (>20) after ABC..."
+tee -o $::env(REPORT_DIR)/$::env(TOP_MODULE)_post_abc_fanout.txt select -list w:* %x:+20
+
+# ============================================================================
+# STEP 5: Cleanup and Optimization
+# ============================================================================
+log "\n[5/8] Cleanup and optimization..."
+
+# Clean up
+clean
+
+# Optimize
+opt
+
+log "✓ Optimization complete"
+
+# ============================================================================
+# STEP 6: Statistics Collection
+# ============================================================================
+log "\n[6/8] Collecting statistics..."
+
+# Generate detailed statistics
+tee -q -o $::env(REPORT_DIR)/$::env(TOP_MODULE)_stats.txt stat -liberty $::env(LIB_CORNER_TEMP_VOLT)
+
+# Generate JSON statistics for parsing
+tee -q -o $::env(REPORT_DIR)/$::env(TOP_MODULE)_stats.json stat -liberty $::env(LIB_CORNER_TEMP_VOLT) -json
+
+# Cell usage report
+tee -q -o $::env(REPORT_DIR)/$::env(TOP_MODULE)_cells.txt stat -top $::env(TOP_MODULE)
+
+log "✓ Statistics collected"
+
+# ============================================================================
+# STEP 7: Timing Analysis (if SDC exists)
+# ============================================================================
+log "\n[7/8] Timing analysis..."
+
+# Note: Yosys has limited timing analysis capabilities
+# For full STA, use external tools like OpenSTA
+
+log "✓ Basic timing checks complete (use OpenSTA for detailed analysis)"
+
+# ============================================================================
+# STEP 8: Write Outputs
+# ============================================================================
+log "\n[8/8] Writing outputs..."
+
+# Write synthesized netlist for simulation/verification (with all cells)
+write_verilog -noattr -noexpr -nohex -nodec $::env(NETLIST_DIR)/$::env(TOP_MODULE)_synth.v
+
+# Write netlist for OpenSTA (more compatible format)
+# Note: Formal verification cells ($check, $assert, etc.) are automatically
+# removed during technology mapping (abc), so we don't need to manually delete them
+# Options for STA tools:
+#   -defparam: use defparam instead of inline parameters
+#   -noattr: don't include Yosys attributes
+#   -noexpr: use simple expressions
+#   -nohex: don't use hex literals
+#   -nodec: don't use decimal width specifiers  
+#   -simple-lhs: use simple left-hand side assignments
+write_verilog -defparam -noattr -noexpr -nohex -nodec -simple-lhs $::env(NETLIST_DIR)/$::env(TOP_MODULE)_sta.v
+
+# Write JSON netlist for further processing
+write_json $::env(NETLIST_DIR)/$::env(TOP_MODULE)_synth.json
+
+# Write BLIF format
+write_blif $::env(NETLIST_DIR)/$::env(TOP_MODULE)_synth.blif
+
+log "✓ Netlist written to $::env(NETLIST_DIR)/$::env(TOP_MODULE)_synth.v"
+log "✓ STA netlist written to $::env(NETLIST_DIR)/$::env(TOP_MODULE)_sta.v"
+
+# ============================================================================
+# Final Summary
+# ============================================================================
+log "\n================================================================"
+log "  Synthesis Complete!"
+log "================================================================"
+log "Reports     : $::env(REPORT_DIR)/"
+log "Netlist     : $::env(NETLIST_DIR)/$::env(TOP_MODULE)_synth.v"
+log "================================================================"
