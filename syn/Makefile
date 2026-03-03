@@ -55,10 +55,10 @@ LIBERTY_FILE := $(PDKPATH)/libs.ref/sky130_fd_sc_hd/lib/sky130_fd_sc_hd__$(CORNE
 
 # Export variables for Yosys script
 export TOP_MODULE := $(TOP)
-export RTL_DIR := $(RTL_DIR)
-export SDC_FILE := $(SDC_FILE)
-export REPORT_DIR := $(REPORT_DIR)
-export NETLIST_DIR := $(NETLIST_DIR)
+export RTL_DIR := $(abspath $(RTL_DIR))
+export SDC_FILE := $(abspath $(SDC_FILE))
+export REPORT_DIR := $(abspath $(REPORT_DIR))
+export NETLIST_DIR := $(abspath $(NETLIST_DIR))
 export CORNER := $(CORNER)
 export TEMP := $(TEMP)
 export VOLT := $(VOLT)
@@ -208,21 +208,13 @@ $(NETLIST_DIR)/$(TOP)_synth.v: $(SYNTH_SCRIPT) $(SDC_FILE)
 	@echo "  PDK    : $(PDKPATH)"
 	@echo "=========================================="
 	@mkdir -p $(REPORT_DIR) $(NETLIST_DIR)
-	@# Create temporary script with substituted variables
-	@sed -e 's|$$::env(RTL_DIR)|$(abspath $(RTL_DIR))|g' \
-	     -e 's|$$::env(TOP_MODULE)|$(TOP)|g' \
-	     -e 's|$$::env(REPORT_DIR)|$(abspath $(REPORT_DIR))|g' \
-	     -e 's|$$::env(NETLIST_DIR)|$(abspath $(NETLIST_DIR))|g' \
-	     -e 's|$$::env(PDKPATH)|$(PDKPATH)|g' \
-	     -e 's|$$::env(CORNER)|$(CORNER)|g' \
-	     -e 's|$$::env(TEMP)|$(TEMP)|g' \
-	     -e 's|$$::env(VOLT)|$(VOLT)|g' \
-	     -e 's|$$::env(LIB_CORNER_TEMP_VOLT)|$(LIBERTY_FILE)|g' \
-	     -e 's|$$::env(SDC_FILE)|$(abspath $(SDC_FILE))|g' \
-	     $(SCRIPTS_DIR)/synth.ys > $(REPORT_DIR)/synth_$(TOP).ys
-	@# Run Yosys synthesis
-	cd $(REPORT_DIR) && $(YOSYS) synth_$(TOP).ys | tee $(TOP)_yosys.log
-	@rm -f $(REPORT_DIR)/synth_$(TOP).ys
+	@# List all files in RTL_DIR and update synth.ys directly (in-place)
+	@sed -i "/read_verilog -sv \$$::env(RTL_DIR)/d" $(abspath $(SYNTH_SCRIPT))
+	@for f in $(wildcard $(RTL_DIR)/*.sv); do \
+		sed -i "/# Read SystemVerilog files from filelist/a read_verilog -sv \$$::env(RTL_DIR)/$$(basename $$f)" $(abspath $(SYNTH_SCRIPT)); \
+	done
+	@# Run Yosys synthesis using absolute path to script and env variables
+	cd $(REPORT_DIR) && $(YOSYS) $(abspath $(SYNTH_SCRIPT)) | tee $(TOP)_yosys.log
 	@echo ""
 	@echo "✓ Synthesis complete"
 	@echo "  Netlist : $(NETLIST_DIR)/$(TOP)_synth.v"
