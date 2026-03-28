@@ -21,7 +21,7 @@ export PDKPATH ?= $(PDK_ROOT)/$(PDK)
 #     ss (slow-slow): 100C_1v60
 
 # Design Configuration
-TOP ?= MemoryAdapterMsgSync
+TOP ?= QueueModule
 RTL_DIR ?= ../output
 CORNER ?= tt
 TEMP ?= 025C
