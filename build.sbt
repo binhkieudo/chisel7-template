@@ -23,4 +23,4 @@ lazy val root = (project in file("."))
     addCompilerPlugin("org.chipsalliance" % "chisel-plugin" % chiselVersion cross CrossVersion.full),
   )
 
-addCommandAlias("formal", "runMain gcd.QueueModule")
+addCommandAlias("queue", "runMain gcd.QueueModule")
