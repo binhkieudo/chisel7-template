@@ -30,6 +30,6 @@ object QueueModule extends App {
       "-disable-all-randomization", 
       "-strip-debug-info",
       //"--verification-flavor=sva", // Uncomment when using with Jasper
-      "--lowering-options=disallowLocalVariables")
+      "--lowering-options=disallowLocalVariables,disallowPackedArrays,noAlwaysComb") // Require to generate friendly verilog
   )
 }
