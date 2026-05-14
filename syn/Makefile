@@ -6,7 +6,7 @@
 # ============================================================================
 
 # PDK Configuration
-export PDK_ROOT ?= /opt/pdk
+export PDK_ROOT ?= /home/binhkieudo/tools/pdk
 export PDK ?= sky130A
 export PDKPATH ?= $(PDK_ROOT)/$(PDK)
 
@@ -21,7 +21,7 @@ export PDKPATH ?= $(PDK_ROOT)/$(PDK)
 #     ss (slow-slow): 100C_1v60
 
 # Design Configuration
-TOP ?= MemoryAdapterMsgSync
+TOP ?= QueueModule
 RTL_DIR ?= ../output
 CORNER ?= tt
 TEMP ?= 025C
@@ -208,13 +208,24 @@ $(NETLIST_DIR)/$(TOP)_synth.v: $(SYNTH_SCRIPT) $(SDC_FILE)
 	@echo "  PDK    : $(PDKPATH)"
 	@echo "=========================================="
 	@mkdir -p $(REPORT_DIR) $(NETLIST_DIR)
-	@# List all files in RTL_DIR and update synth.ys directly (in-place)
-	@sed -i "/read_verilog -sv \$$::env(RTL_DIR)/d" $(abspath $(SYNTH_SCRIPT))
-	@for f in $(wildcard $(RTL_DIR)/*.sv); do \
-		sed -i "/# Read SystemVerilog files from filelist/a read_verilog -sv \$$::env(RTL_DIR)/$$(basename $$f)" $(abspath $(SYNTH_SCRIPT)); \
-	done
-	@# Run Yosys synthesis using absolute path to script and env variables
-	cd $(REPORT_DIR) && $(YOSYS) $(abspath $(SYNTH_SCRIPT)) | tee $(TOP)_yosys.log
+	@# Generate temporary synthesis script with RTL files inserted
+	@(sed -n '1,40p' $(abspath $(SYNTH_SCRIPT)); \
+		for f in $(wildcard $(RTL_DIR)/*.sv); do \
+			echo "read_verilog -sv $$f"; \
+		done; \
+		sed -n '41,$$p' $(abspath $(SYNTH_SCRIPT))) | \
+		sed \
+			-e 's|$$::env(TOP_MODULE)|$(TOP)|g' \
+			-e 's|$$::env(PDKPATH)|$(PDKPATH)|g' \
+			-e 's|$$::env(CORNER)|$(CORNER)|g' \
+			-e 's|$$::env(TEMP)|$(TEMP)|g' \
+			-e 's|$$::env(VOLT)|$(VOLT)|g' \
+			-e 's|$$::env(LIB_CORNER_TEMP_VOLT)|$(LIBERTY_FILE)|g' \
+			-e 's|$$::env(REPORT_DIR)|$(REPORT_DIR)|g' \
+			-e 's|$$::env(NETLIST_DIR)|$(NETLIST_DIR)|g' \
+			-e 's|$$::env(SDC_FILE)|$(SDC_FILE)|g' > $(abspath $(REPORT_DIR))/_synth_gen.ys
+	@# Run Yosys synthesis
+	$(YOSYS) $(abspath $(REPORT_DIR))/_synth_gen.ys 2>&1 | tee $(abspath $(REPORT_DIR))/$(TOP)_yosys.log
 	@echo ""
 	@echo "✓ Synthesis complete"
 	@echo "  Netlist : $(NETLIST_DIR)/$(TOP)_synth.v"

@@ -35,16 +35,7 @@ log "  Liberty     : $::env(LIB_CORNER_TEMP_VOLT)"
 # ============================================================================
 log "\n[1/8] Reading RTL files..."
 
-# Read SystemVerilog files from filelist
-read_verilog -sv $::env(RTL_DIR)/SourceInput_UInt64.sv
-read_verilog -sv $::env(RTL_DIR)/AsyncQueueSource_UInt64.sv
-read_verilog -sv $::env(RTL_DIR)/SinkOutput_UInt64.sv
-read_verilog -sv $::env(RTL_DIR)/AsyncQueueSink_UInt64.sv
-read_verilog -sv $::env(RTL_DIR)/CdcMem.sv
-read_verilog -sv $::env(RTL_DIR)/AsyncQueue.sv
-read_verilog -sv $::env(RTL_DIR)/MemoryAdapterMsgSync.sv
-read_verilog -sv $::env(RTL_DIR)/sdp_hw.sv
-read_verilog -sv $::env(RTL_DIR)/synopsys_sync.sv
+# RTL files will be read by Makefile (appended to this script)
 
 log "✓ RTL files loaded"
 
