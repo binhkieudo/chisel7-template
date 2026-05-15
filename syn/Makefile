@@ -21,11 +21,14 @@ export PDKPATH ?= $(PDK_ROOT)/$(PDK)
 #     ss (slow-slow): 100C_1v60
 
 # Design Configuration
-TOP ?= QueueModule
+TOP ?= Crc24BModule
 RTL_DIR ?= ../output
 CORNER ?= tt
 TEMP ?= 025C
 VOLT ?= 1v80
+
+# Fanout
+FAN_OUT ?= 40
 
 # Timing Configuration
 DEFAULT_PERIOD ?= 10.0
@@ -63,6 +66,7 @@ export CORNER := $(CORNER)
 export TEMP := $(TEMP)
 export VOLT := $(VOLT)
 export LIB_CORNER_TEMP_VOLT := $(LIBERTY_FILE)
+export FAN_OUT := $(FAN_OUT)
 
 # ============================================================================
 # Phony Targets

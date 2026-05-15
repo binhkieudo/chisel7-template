@@ -1,6 +1,8 @@
 # OpenSTA Timing and Power Analysis Script
 # This script performs STA on the synthesized netlist
 
+set FAN_OUT $::env(FAN_OUT)
+
 # Read liberty file for the target corner
 set liberty_file $::env(LIBERTY_FILE)
 read_liberty $liberty_file
@@ -85,7 +87,7 @@ puts "\n=========================================="
 puts "High Fanout Net Report"
 puts "=========================================="
 # Set a low threshold to catch high fanout nets for reporting
-set_max_fanout 20 [current_design]
+set_max_fanout ${FAN_OUT} [current_design]
 report_check_types -max_fanout -violators > "$report_dir/${top_module}_sta_fanout.rpt"
 # Also report nets with fanout > 10 for more detail if needed
 puts "High fanout report generated: $report_dir/${top_module}_sta_fanout.rpt"
